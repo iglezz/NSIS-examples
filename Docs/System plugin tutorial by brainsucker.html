@@ -1,0 +1,599 @@
+<html>
+<head>
+<title>System plugin tutorial</title>
+
+<style>
+:root {
+    --codefont: Fira Code, Consolas, monospace;
+    --codefontsize: 0.9em;
+}
+
+body {
+    font-size: 12pt;
+}
+
+a {
+    font-weight: bold;
+}
+
+code {
+    font-family: var(--codefont);
+    font-size: var(--codefontsize);
+}
+
+li code {
+    color: blue;
+}
+
+li mark {
+    background-color: inherit;
+    font-weight: bold;
+}
+
+li em {
+    font-family: var(--codefont);
+    font-size: var(--codefontsize);
+    color: green;
+    font-weight: normal;
+    font-style: normal;
+}
+code mark {
+    color: blue;
+    background-color: transparent;
+}
+
+.codeblock {
+    display: block;
+    font-family: var(--codefont);
+    font-size: var(--codefontsize);
+	border: 2px solid black;
+    padding: 0.5em;
+	font-style: normal;
+}
+</style>
+
+</head>
+
+<body>
+
+<h1>System plugin tutorial</h1>
+
+<p>Welcome to my tutorial for the NSIS' system plugin. If you want to call Win32 APIs or functions to your dynamic link libraries (DLLs) if you don't know how, system plugin is a good way to do it :).</p>
+<p>What you need:</p>
+<ol>
+	<li><a href="https://nsis.sourceforge.io/" TARGET=_blank>NSIS</a></li>
+	<li>System plugin. Comes with the NSIS installation and can be found at your <code>${NSISDIR}\Plugins\System.dll</code></li>
+	<li>Basic knowledge of the API calling and its parameters</li>
+	<li>A text-based editor. I like notepad :)</li>
+	<li>Patiente :p</li>
+</ol>
+<p>This tutorial will convert 2 ways of handling APIs: Visual Basic style and API C style.</p>
+<p>So, before contiue, if you have questions related to the system plugin, you can contact its <a href="https://forums.winamp.com/member.php?s=&action=getinfo&userid=85220" TARGET=_blank>Author</a>. Questions about this tutorial you can contact <a href="https://forums.winamp.com/member.php?s=&action=getinfo&userid=98819" TARGET=_blank>me</a> by Email at aullidolunar(@)yahoo(.)com(.)mx</p>
+
+
+
+<h2>1. Meet the plugin</h2>
+
+<ul>
+	<li>The official documentation and examples can be found in your <code>${NSISDIR}\Contrib\System</code>.</li>
+	<li>So, have you read it?</li>
+	<li>Good...if not, read it :p</li>
+	<li>Read more about <code>Call</code> function (our goal is to use it).</li>
+	<li>Pay attention what the author says about <em>Parameter Types</em> and <em>Sources and Destinations</em>.</li>
+	<li>Finally see the section about <em>Usage Examples</em>.</li>
+</ul>
+
+
+<h2>2. Clean and mean?</h2>
+
+<ul>
+<li>At this point, you already have NSIS 2.x and read the documention about it and system plugin.</li>
+<li>Now... Need a little push? Do you understand how to use it now? Good, no need to continue through this tutorial :)</li>
+<li>If not... let's begin the tutorial knowing the syntax of the function <code>Call</code>...</li>
+</ul>
+
+
+<h2>3. Syntax</h2>
+<p>This is the syntax which we are going to be using:</p>
+<code class="codeblock">
+System::Call 'Dll::Function(type param1, type param2, [...]) type return'
+</code>
+
+<p>Now, the meaning:</p>
+<OL TYPE="1">
+<li><mark>System::Call</mark> &mdash; From <em>NSIS</em>, this the declaration and execution of the function <em>Call</em> from the plugin<em>System</em>.</li>
+<li><mark>'Dll::Function(type param1, type param2, [...]) type return'</mark> &mdash; The "single" string that represents the API o function to call:</li>
+	<OL TYPE="a">
+	<li><mark>DLL</mark> &mdash; Is the <em>DLL</em> file that has the <em>Function</em>.</li>
+	<li><mark>Function</mark> &mdash; Well... is what we are trying to execute :)</li>
+	<li><mark>type</mark> &mdash; Is the<em>type</em> of the parameter inputed (see <em>Parameter Types</em> from the official documentation).</li>
+	<li><mark>param1</mark> &mdash; The value inputed or outputed. If the value is outputed, add a "." (dot) as prefix.</li>
+	<li><mark>[...]</mark> &mdash; Add parameters as many as the <em>Function</em> needs.</li>
+	</ol>
+<li><mark>return</mark> &mdash; Is the parameter will handle the output value which the function returns.</li>
+</ol>
+
+<p>The <code>param</code> and <code>return</code> handlers can be strings, numbers, pointers, any type that the function needs can be passed through the systax of the plugin. Now the plugin has a related comunication with NSIS variables, see the below:</p>
+<pre class="codeblock">System  NSIS
+(.)r0   $0
+(.)r1   $1
+(.)r2   $2
+(.)r3   $3
+(.)r4   $4
+(.)r5   $5
+(.)r6   $6
+(.)r3   $3
+(.)r3   $3
+(.)r7   $7
+(.)r8   $8
+(.)r9   $9
+(.)R0   $R0
+(.)R1   $R1
+.....   ...
+</pre>
+
+<p>See the dot? Remember, we use it when a value is going to be output. Now let's use real-time API with the <em>system</em> plugin and <em>NSIS</em>.</p>
+
+
+<h2>4a. Visual Basic style</h2>
+
+<a NAME="vb1"><h3>GetWindowsDirectory</h3></a>
+<p>Retrieves the path of the Windows directory.</p>
+<code class="codeblock">
+<mark>Public Declare Function</mark> GetWindowsDirectory <mark>Lib</mark> "kernel32" <mark>Alias</mark> "GetWindowsDirectoryA" (<mark>ByVal</mark> lpBuffer <mark>As String</mark>, <mark>ByVal</mark> nSize <mark>As Long</mark>) <mark>As Long</mark>
+</code>
+
+<OL TYPE="1">
+	<li><mark>GetWindowsDirectory</mark> &mdash; Function to call.</li>
+	<li><mark>kernel32</mark> &mdash; DLL which has the Function.</li>
+	<li><mark>lpBuffer</mark> &mdash; Output string variable which will has the returning directory of Windows.</li>
+	<li><mark>nSize</mark> &mdash; Integer number of the variable's size which is going to be inputed.</li>
+</ol>
+<p>Ok, Let's convert it to System syntax:</p>
+
+<code class="codeblock">
+System::Call 'kernel32::GetWindowsDirectory(t .r0, i 260) i .r1'
+</code>
+
+<OL TYPE="1">
+<li><mark>System::Call</mark> &mdash; From <em>NSIS</em> this will execute the Function <em>Call</em> from System.dll</li>
+<li><mark>kernel32::GetWindowsDirectory(t .r0, i 260) i .r1</mark> &mdash; Single string which will have the converted syntax:</li>
+<UL TYPE="Square">
+	<li><mark>kernel32</mark> &mdash; The DLL file to call.</li>
+	<li><mark>GetWindowsDirectory</mark> &mdash; Function to execute.</li>
+	<li><mark>t .r0</mark> &mdash; The type <code>t</code> means that the output value <code>.r0</code> (to NSIS <code>$0</code>) is a string or text (remember the dot?).</li>
+	<li><mark>i 260</mark> &mdash; The type <code>i</code> means that the inputed value <em>260</em> is number or integer.</li>
+</ul>
+<li><mark>i .r1</mark> &mdash; The functions returns something, let's see what. Type <code>i</code> means the functions returns something in integer and will put it in NSIS' <code>$1</code> (once again the dot). If you don't want to see or "void" the return stuff, simple add <code>v r1</code> (later will show you this), which will void the returning.</li>
+</ol>
+
+<p>Now, a live example build with NSIS:</p>
+
+<pre class="codeblock">
+Name "Example_1"
+OutFile "Example_1.exe"
+ShowInstDetails show
+
+Section
+System::Call 'Kernel32::GetWindowsDirectory(t .r0, i 260) i .r1'
+DetailPrint "Windows Directory: $0"
+DetailPrint "GetWindowsDirectory returns: $1"
+SectionEnd
+</pre>
+
+
+<a NAME="vb2"><h3>GetCurrentDirectory</h3></a>
+<p>Retrieves the current directory for the current process.</p>
+<code class="codeblock">
+<mark>Public Declare Function</mark> GetCurrentDirectory <mark>Lib</mark> "kernel32" <mark>Alias</mark> "GetCurrentDirectory" (<mark>ByVal</mark> nBufferLength <mark>As Long</mark>, <mark>ByVal</mark> lpBuffer <mark>As String</mark>) <mark>As Long</mark>
+</code>
+
+<OL TYPE="1">
+	<li><mark>GetCurrentDirectory</mark> &mdash; Function to call.</li>
+	<li><mark>kernel32</mark> &mdash; DLL which has the Function.</li>
+	<li><mark>nBufferLength</mark> &mdash; Integer number of the variable's size which is going to be inputed.</li>
+	<li><mark>lpBuffer</mark> &mdash; Output string variable which will has the returning directory of Windows.</li>
+</ol>
+</ol>
+<p>Ok, Let's convert it to System syntax:</p>
+
+<code class="codeblock">
+System::Call 'kernel32::GetCurrentDirectory(i 260, t .r0) v r1'
+</code>
+
+<OL TYPE="1">
+<li><mark>System::Call</mark> &mdash; From <em>NSIS</em> this will execute the Function <em>Call</em> from System.dll</li>
+<li><mark>kernel32::GetCurrentDirectory(i 260, t .r0) v r1</mark> &mdash; Single string which will have the converted syntax:</li>
+<UL TYPE="Square">
+	<li><mark>kernel32</mark> &mdash; The DLL file to call.</li>
+	<li><mark>GetCurrentDirectory</mark> &mdash; Function to execute.</li>
+	<li><mark>i 260</mark> &mdash; The type <code>i</code> means that the inputed value <em>260</em> is number or integer.</li>
+	<li><mark>t .r0</mark> &mdash; The type <code>t</code> means that the outputed value <code>.r0</code> (to NSIS' <code>$0</code>) is string or text.</li>
+</ul>
+<li><mark>v r1</mark> &mdash; The functions returns something, this time I don't want to see it. Type <code>v</code> means the functions returns something but I don't output it.</li>
+</ol>
+<p>Now, a live example build with NSIS:</p>
+
+<pre class="codeblock">
+Name "Example_2"
+OutFile "Example_2.exe"
+ShowInstDetails show
+
+Section
+System::Call 'Kernel32::GetCurrentDirectory(i 260, t .r0) v r1'
+DetailPrint "Current Directory: $0"
+SectionEnd
+</pre>
+
+<a NAME="vb3"><h3>GetSystemMetrics</h3></a>
+<cite>Retrieves system configuration settings (in this case SM_CMOUSEBUTTONS, means Number of buttons on mouse).</cite>
+<code class="codeblock">
+<mark>Public Declare Function</mark> GetSystemMetrics <mark>Lib</mark> "User32" <mark>Alias</mark> "GetSystemMetrics" (<mark>ByVal</mark> nIndex <mark>As Long</mark>) <mark>As Long</mark>
+</code>
+
+<OL TYPE="1">
+	<li><mark>GetSystemMetrics</mark> &mdash; Function to call.</li>
+	<li><mark>User32</mark> &mdash; DLL which has the Function.</li>
+	<li><mark>nIndex</mark> &mdash; Integer number which is going to be inputed.</li>
+</ol>
+<p>Ok, Let's convert it to System syntax:</p>
+
+<code class="codeblock">
+System::Call 'User32::GetSystemMetrics(i 43) i .r1'
+</code>
+
+<OL TYPE="1">
+<li><mark>System::Call</mark> &mdash; From <em>NSIS</em> this will execute the Function <em>Call</em> from System.dll</li>
+<li><mark>User32::GetSystemMetrics(i 43) i .r1</mark> &mdash; Single string which will have the converted syntax:</li>
+<UL TYPE="Square">
+	<li><mark>User32</mark> &mdash; The DLL file to call.</li>
+	<li><mark>GetSystemMetrics</mark> &mdash; Function to execute.</li>
+	<li><mark>i 43</mark> &mdash; The type <code>i</code> means that the inputed value<em>43</em> (SM_CMOUSEBUTTONS) is number or integer.</li>
+</ul>
+<li><mark>i .r1</mark> &mdash; The functions returns something, let's see what (in this case, the number of buttons of our mouse). Type <code>i</code> means the functions returns something in integer and will put it in NSIS' <code>$1</code> (once again the dot).</li>
+</ol>
+
+<p>Now, a live example build with NSIS:</p>
+
+<pre class="codeblock">
+Name "Example_3"
+OutFile "Example_3.exe"
+ShowInstDetails show
+
+Section
+System::Call 'User32::GetSystemMetrics(i 43) i .r1'
+DetailPrint "Number of buttons in my mouse: $1"
+SectionEnd
+</pre>
+
+
+<h2>4b. Win32 API C style</h2>
+
+<a NAME="wc1"><h3>GetSystemDirectory</h3></a>
+<p>Retrieves the path of the system directory.</p>
+
+<code class="codeblock">
+<mark>UINT</mark> GetSystemDirectory(<mark>LPTSTR</mark> lpBuffer, <mark>UINT</mark> uSize);
+</code>
+
+<OL TYPE="1">
+	<li><mark>GetSystemDirectory</mark> &mdash; Function to call.</li>
+	<li><mark>kernel32</mark> &mdash; According to <a href="https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getsystemdirectorya" TARGET=_blank>Microsoft Docs</a>, DLL which has the Function.</li>
+	<li><mark>lpBuffer</mark> &mdash; Output string variable which will has the returning System's directory.</li>
+	<li><mark>uSize</mark> &mdash; Integer number of the variable's size which is going to be inputed.</li>
+</ol>
+<p>Ok, Let's convert it to System syntax:</p>
+
+<code class="codeblock">
+System::Call 'kernel32::GetSystemDirectory(t .r0, i 260) i .r1'
+</code>
+
+<OL TYPE="1">
+<li><mark>System::Call</mark> &mdash; From <em>NSIS</em> this will execute the Function <em>Call</em> from System.dll</li>
+<li><mark>kernel32::GetSystemDirectory(t .r0, i 260) i .r1</mark> &mdash; Single string which will have the converted syntax:</li>
+<UL TYPE="Square">
+	<li><mark>kernel32</mark> &mdash; The DLL file to call.</li>
+	<li><mark>GetSystemDirectory</mark> &mdash; Function to execute.</li>
+	<li><mark>t .r0</mark> &mdash; The type <code>t</code> means that the output value <code>.r0</code> (to NSIS <code>$0</code>) is a string or text (remember the dot?).</li>
+	<li><mark>i 260</mark> &mdash; The type <code>i</code> means that the inputed value <em>260</em> is number or integer.</li>
+</ul>
+<li><mark>i .r1</mark> &mdash; The functions returns something, let's see what. Type <code>i</code> means the functions returns something in integer and will put it in NSIS' <code>$1</code> (once again the dot). If you don't want to see or "void" the return stuff, simple add <code>v r1</code> (later will show you this), which will void the returning.</li>
+</ol>
+
+<p>Now, a live example build with NSIS:</p>
+
+<pre class="codeblock">
+Name "Example_4"
+OutFile "Example_4.exe"
+ShowInstDetails show
+
+Section
+System::Call 'Kernel32::GetSystemDirectory(t .r0, i 260) i .r1'
+DetailPrint "System Directory: $0"
+DetailPrint "GetSystemDirectory returns: $1"
+SectionEnd
+</pre>
+
+
+<a NAME="wc2"><h3>wsprintf</h3></a>
+<p>Formats and stores a series of characters and values in a buffer.</p>
+
+<code class="codeblock">
+<mark>int</mark> wsprintf(<mark>LPTSTR</mark> lpOut, <mark>LPCTSTR</mark> lpFmt,...);
+</code>
+
+<OL TYPE="1">
+	<li><mark>wsprintf</mark> &mdash; Function to call.</li>
+	<li><mark>User32</mark> &mdash; Accodring to <a href="https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-wsprintfa" TARGET=_blank>Microsoft Docs</a>, DLL which has the Function.</li>
+	<li><mark>lpOut</mark> &mdash; Output of the string.</li>
+	<li><mark>lpFmt</mark> &mdash; Formats of the string to be inputed.</li>
+	<li><mark>...</mark> &mdash; Inputed values.</li>
+</ol>
+</ol>
+<p>Ok, Let's convert it to System syntax:</p>
+
+<code class="codeblock">
+System::Call 'User32::wsprintf(t .r0, &lt;formats&gt;, &lt;input values&gt;) i .r1'
+</code>
+
+<OL TYPE="1">
+<li><mark>System::Call</mark> &mdash; From <em>NSIS</em> this will execute the Function <em>Call</em> from System.dll</li>
+<li><mark>User32::wsprintf(t .r0, &lt;formats&gt;, &lt;input values&gt;) i .r1</mark> &mdash; Single string which will have the converted syntax:</li>
+<UL TYPE="Square">
+	<li><mark>User32</mark> &mdash; The DLL file to call.</li>
+	<li><mark>wsprintf</mark> &mdash; Function to execute.</li>
+	<li><mark>t .r0, &lt;formats&gt;, &lt;input values&gt;</mark> &mdash; The type <code>t</code> means that the inputed value is a string. See MSDN about formats and input values. Mostly are the value type and itd values.</li>
+</ul>
+<li><mark>i .r1</mark> &mdash; The type <code>i</code> means that the outputed value <code>.r1</code> (to NSIS' <code>$1</code>) is the length of the output value.</li>
+</ol>
+<p>Now, a live example build with NSIS:</p>
+
+<pre class="codeblock">
+Name "Example_5"
+OutFile "Example_5.exe"
+ShowInstDetails show
+
+Section
+System::Call 'User32::wsprintf(t .r0, t "%s, a perfect %i", t "NSIS", i 10) i .r1'
+DetailPrint "Returning string: $0"
+DetailPrint "Len: $1"
+SectionEnd
+</pre>
+
+
+<a NAME="wc3"><h3>lstrlen</h3></a>
+<p>Returns the length in bytes.</p>
+
+<code class="codeblock">
+<mark>int</mark> lstrlen(<mark>LPCTSTR</mark> lpString);
+</code>
+
+<OL TYPE="1">
+	<li><mark>lstrlen</mark> &mdash; Function to call.</li>
+	<li><mark>Kernel32</mark> &mdash; According to <a href="https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-lstrlena" TARGET=_blank>Microsoft Docs</a>, DLL which has the Function.</li>
+	<li><mark>lpString</mark> &mdash; Inputed string.</li>
+</ol>
+<p>Ok, Let's convert it to System syntax:</p>
+
+<code class="codeblock">
+System::Call 'kernel32::lstrlen(t &lt;string&gt;) i .r0'
+</code>
+
+<OL TYPE="1">
+<li><mark>System::Call</mark> &mdash; From <em>NSIS</em> this will execute the Function <em>Call</em> from System.dll</li>
+<li><mark>kernel32::lstrlen(t &lt;string&gt;) i .r0</mark> &mdash; Single string which will have the converted syntax:</li>
+<UL TYPE="Square">
+	<li><mark>Kernel32</mark> &mdash; The DLL file to call.</li>
+	<li><mark>lstrlen</mark> &mdash; Function to execute.</li>
+	<li><mark>t &lt;string&gt;</mark> &mdash; The type <code>t</code> means that the inputed value<em>string</em> is a text.</li>
+</ul>
+<li><mark>i .r0</mark> &mdash; The functions returns something, in this case the number of chars of the inputed string.</li>
+</ol>
+
+<p>Now, a live example build with NSIS:</p>
+
+<pre class="codeblock">
+Name "Example_6"
+OutFile "Example_6.exe"
+ShowInstDetails show
+
+Section
+System::Call 'kernel32::lstrlen(t "Hi world") i .r0'
+DetailPrint "Len: $0"
+SectionEnd
+</pre>
+
+
+
+
+<h2>5. Examples</h2>
+
+<pre class="codeblock">
+Name "Example_7"
+OutFile "Example_7.exe"
+ShowInstDetails show
+
+Section
+FileOpen $0 "Example_7.exe" r
+System::Call 'Kernel32::GetFileSize(i $0, i 0) i .r1'
+DetailPrint "File size: $1 bytes"
+FileClose $0
+SectionEnd
+</pre>
+
+<pre class="codeblock">
+Name "Example_8"
+OutFile "Example_8.exe"
+ShowInstDetails show
+
+Section
+System::Call 'comdlg32::GetFileTitle(t "Example_8.exe", t .r0, i 260) v r1'
+DetailPrint $0
+SectionEnd
+</pre>
+
+<pre class="codeblock">
+Name "Example_9"
+OutFile "Example_9.exe"
+ShowInstDetails show
+
+Section
+DetailPrint "Instance:"
+System::Call 'Kernel32::GetModuleHandle(i 0) i .r1'
+DetailPrint $1
+SectionEnd
+</pre>
+
+
+
+<h2>6. Tips n' Tricks</h2>
+<OL TYPE="I">
+<li>
+<p>Some times you need put stuff like this:</p>
+<pre class="codeblock">
+FileOpen $0 "somefile.txt"
+System::Call 'dll::func(i $0) v r1'
+</pre>
+
+<p>Actually, in the plugin way, is the same if you code:</p>
+<pre class="codeblock">
+FileOpen $0 "somefile.txt"
+System::Call 'dll::func(i r0) v r1'
+</pre>
+
+<p>Since <code>r0</code> already has the value from NSIS' <code>$0</code>.</p>
+</li>
+<li>
+<p>Alloc and Free are for put things in the memory and later (when no are in used) free them:</p>
+<pre class="codeblock">
+System::Alloc 260
+Pop $0
+System::Call 'Kernel32::GetWindowsDirectory(t .r0, i 260) v r1'
+DetailPrint $0
+</pre>
+</li>
+<li>
+<p>What about this type of APIs: <a href="https://msdn.microsoft.com/library/default.asp?url=/library/en-us/winui/winui/windowsuserinterface/windowing/windows/windowreference/windowfunctions/getwindowrect.asp" TARGET=_blank>GetWindowRect</a>. Those types of API need a structure to be passed. This is a way of how the plugin sees the structure:</p>
+<pre class="codeblock">
+# predefine the RECT struct
+!define RECT '(i, i, i, i) i'
+
+Section
+# Init the values of the structure to zero and pass the pointer to NSIS' $0:
+System::Call '*${RECT}(0, 0, 0, 0) .r0'
+# pass the pointer to the API
+System::Call 'User32::GetWindowRect(i $HWNDPARENT, i r0) v r1'
+# Grab the values passed to the pointer and the structure
+System::Call '*$0${RECT}(.r9,.r8,.r7,.r6)'
+DetailPrint "Left: $9"
+DetailPrint "Top: $8"
+DetailPrint "Right: $7"
+DetailPrint "Bottom: $6"
+IntOp $3 $7 - $9
+IntOp $4 $6 - $8
+DetailPrint "Width: $3"
+DetailPrint "Height: $4"
+# Free the pointer allocated
+System::Free $0
+SectionEnd
+</pre>
+</li>
+</ol>
+
+
+<h2>7. Advanced examples</h2>
+
+<pre class="codeblock">
+Name "Example_10"
+OutFile "Example_10.exe"
+ShowInstDetails show
+XPStyle on
+
+Section
+# Load the moricons.dll module
+System::Call 'Kernel32::LoadLibrary(t "moricons.dll") i .R0'
+# Test if we succeded
+IntCmp $R0 0 Err 0 0
+# Ok, since is there load its icon at index 4 (there 114 icons, I think)
+System::Call 'User32::LoadIcon(i R0, i 4) i .R1'
+# Call the API ShellAbout, passing the values including our icon handler
+System::Call 'Shell32::ShellAbout(i $HWNDPARENT, t "NSIS", t "Copyright of Nullsoft", i R1) v r1'
+# Free everything
+System::Call 'User32::DestroyIcon(i R1) v r1'
+System::Call 'Kernel32::FreeLibrary(i R0) v r1'
+# Finish NSIS
+Goto End
+
+# This is when we failed locating the moricons.dll
+Err:
+DetailPrint "Couldn't find moricons.dll"
+Goto End
+
+End:
+SectionEnd
+</pre>
+
+<pre class="codeblock">
+Name "Example_11"
+OutFile "Example_11.exe"
+ShowInstDetails show
+XPStyle on
+
+Section
+# Alloc 260 a buff size
+System::Alloc 260
+# Pop it to NSIS' $0
+Pop $0
+# Get text from our parent window
+System::Call 'User32::GetWindowText(i $HWNDPARENT, t .r0, i 260) v r1'
+# Display it
+DetailPrint $0
+# Free the var
+System::Free $0
+SectionEnd
+</pre>
+
+<pre class="codeblock">
+Name "Example_12"
+OutFile "Example_12.exe"
+ShowInstDetails show
+XPStyle on
+
+# Global defines
+!define _MB_OK 0x0
+!define MB_USERICON 0x80
+!define TYPES '${_MB_OK}|${MB_USERICON}'
+!define MSGBOXPARAMS '(i, i, i, t, t, i, i, i, i, i) i'
+
+Section
+# Load, first, the moricons.dll module
+System::Call 'Kernel32::LoadLibrary(t "moricons.dll") i .r1'
+# test if we failed
+IntCmp $1 0 Err Err 0
+# Ok, didn't failed, load the structure
+System::Call '*${MSGBOXPARAMS}(40, $HWNDPARENT, r1, "A MessageBox created with system plugin", "Hello!", ${TYPES}, 20, 0, 0, 0) .r3'
+# Display our MessageBox by system plugin
+System::Call 'User32::MessageBoxIndirect(i r3) v r4'
+# Free the library
+System::Call 'Kernel32::FreeLibrary(i r1) v r4'
+# Free the pointer allocated from system
+System::Free $3
+
+Err:
+SectionEnd
+</pre>
+
+
+<h2>Final notes</h2>
+<OL TYPE="1">
+<li>This tutorial doesn't want to replace the official document of the plugin, is only to show new people another way to use it.</li>
+<li>This is my way of using the pluigin. I bet that there are more ways to do the same task, if you find errors (critical ones) let me know.</li>
+<li>More examples <a href="https://nsis.sourceforge.io/Category:System_Plugin_Examples">here</a>.</li>
+<li>Also keep me updated about the links that I used here.</li>
+<li>Names, logos and related of NSIS are part of the Nullsoft team.</li>
+</ol>
+
+
+
+</body>
+</html>
