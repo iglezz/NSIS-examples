@@ -1,11 +1,8 @@
-!ifndef FILEFUNC_INCLUDED
+!ifndef FILEFUNC2_INCLUDED
 
-!define FILEFUNC_INCLUDED
+!define FILEFUNC2_INCLUDED
 
 !include Util.nsh
-
-
-
 
 
 !define GetCommandLine `!insertmacro GetCommandLine_macro`
